@@ -3,7 +3,7 @@ module OutlineToolkitTests exposing (all)
 import OutlineToolkit
 import Regex
 import Test exposing (..)
-import Test.Html.Selector exposing (text)
+import Test.Html.Selector exposing (tag, text)
 import TestContext exposing (TestContext)
 
 
@@ -53,4 +53,13 @@ all =
                     |> TestContext.fillIn "item-1" "New Entry" "A: 7"
                     |> TestContext.fillIn "item-2" "New Entry" "B: 3"
                     |> TestContext.expectViewHas [ text "Total: 10" ]
+        , test "can edit an existing item" <|
+            \() ->
+                start
+                    |> TestContext.fillIn "item-1" "New Entry" "A: 7"
+                    |> TestContext.fillIn "item-1" "New Entry" "Z: 70"
+                    -- ideally we would check the value in the input,
+                    -- but the value is only in the real DOM, not in the virtual DOM
+                    -- |> TestContext.expectViewHas [ tag "input", text "Z: 70" ]
+                    |> TestContext.expectViewHas [ text "Total: 70" ]
         ]

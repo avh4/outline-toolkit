@@ -99,8 +99,13 @@ view config (Model model) =
     Html.div []
         [ Html.Keyed.node "div"
             []
-            [ viewEntryInput (Array.length model.entries + 1)
-            ]
+            (List.concat
+                [ model.entries
+                    |> Array.toList
+                    |> List.indexedMap (\i value -> viewEntryInput (i + 1))
+                , [ viewEntryInput (Array.length model.entries + 1) ]
+                ]
+            )
         , viewSummary (summarize config model.entries)
         ]
 
