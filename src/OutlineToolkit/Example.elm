@@ -4,6 +4,7 @@ import OutlineToolkit
 import Regex
 
 
+main : Program Never OutlineToolkit.Model OutlineToolkit.Msg
 main =
     OutlineToolkit.program
         { parse =
@@ -24,6 +25,7 @@ main =
                     _ ->
                         Err "Failed to parse"
         , summarize =
-            \children ->
-                List.sum children
+            \value children ->
+                Maybe.withDefault 0 value
+                    + List.sum children
         }

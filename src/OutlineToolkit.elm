@@ -14,14 +14,15 @@ module OutlineToolkit exposing (Config, Model, Msg, init, program, update, view)
 import Array exposing (Array)
 import Html exposing (Html, text)
 import Html.Attributes exposing (for, id)
-import Html.Events exposing (onInput)
+import Html.Events exposing (onInput, onWithOptions)
 import Html.Keyed
+import OutlineToolkit.Tree as Tree exposing (Path, Tree)
 
 
 {-| -}
 type alias Config summaryData =
     { parse : String -> Result String summaryData
-    , summarize : List summaryData -> summaryData
+    , summarize : Maybe summaryData -> List summaryData -> summaryData
     }
 
 
@@ -38,7 +39,7 @@ program config =
 {-| -}
 type Model
     = Model
-        { entries : Array String
+        { entries : Array (Tree String)
         }
 
 
@@ -46,24 +47,27 @@ type Model
 init : Model
 init =
     Model
-        { entries = Array.empty
+        { entries = Tree.empty
         }
 
 
-summarize : Config summaryData -> Array String -> summaryData
+summarize : Config summaryData -> Array (Tree String) -> summaryData
 summarize config entries =
+    let
+        s : String -> List summaryData -> summaryData
+        s aString children =
+            config.summarize
+                (config.parse aString |> Result.toMaybe)
+                children
+    in
     Array.toList entries
-        |> List.filterMap (config.parse >> Result.toMaybe)
-        |> config.summarize
-
-
-type alias Path =
-    Int
+        |> List.map (Tree.fold s)
+        |> config.summarize Nothing
 
 
 {-| -}
 type Msg
-    = OnInputEntry Path String
+    = OnInputEntry (List Int) String
 
 
 {-| -}
@@ -73,48 +77,42 @@ update msg (Model model) =
         case msg of
             OnInputEntry path newValue ->
                 { model
-                    | entries =
-                        model.entries
-                            |> createIfNecessary path
-                            |> Array.set path newValue
+                    | entries = Tree.setAt path newValue model.entries
                 }
 
 
-createIfNecessary : Path -> Array String -> Array String
-createIfNecessary path array =
+viewEntries : List (Tree String) -> Html Msg
+viewEntries entries =
     let
-        neededItems =
-            (path + 1) - Array.length array
+        f : Int -> List Int -> String -> List ( String, Html Msg ) -> ( String, Html Msg )
+        f i path value children =
+            ( "container-" ++ String.join "-" (List.map toString (i :: path))
+            , Html.Keyed.node "div"
+                []
+                (viewEntryInput (i :: path) value
+                    :: children
+                )
+            )
     in
-    if neededItems <= 0 then
-        array
-
-    else
-        Array.append array (Array.repeat neededItems "")
+    List.indexedMap (\i -> Tree.indexedFold (f i)) entries
+        |> Html.Keyed.node "div" []
 
 
 {-| -}
 view : Config summaryData -> Model -> Html Msg
 view config (Model model) =
     Html.div []
-        [ Html.Keyed.node "div"
-            []
-            (List.concat
-                [ model.entries
-                    |> Array.toList
-                    |> List.indexedMap (\i value -> viewEntryInput (i + 1))
-                , [ viewEntryInput (Array.length model.entries + 1) ]
-                ]
-            )
+        [ viewEntries (Array.toList model.entries)
+        , viewEntryInput [ Array.length model.entries ] "" |> Tuple.second
         , viewSummary (summarize config model.entries)
         ]
 
 
-viewEntryInput : Int -> ( String, Html Msg )
-viewEntryInput i =
+viewEntryInput : List Int -> String -> ( String, Html Msg )
+viewEntryInput path value =
     let
         inputId =
-            "item-" ++ toString i
+            "item-" ++ String.join "-" (List.map toString path)
     in
     ( inputId
     , Html.div []
@@ -123,7 +121,8 @@ viewEntryInput i =
             [ text "New Entry" ]
         , Html.input
             [ id inputId
-            , onInput (OnInputEntry (i - 1))
+            , Html.Attributes.value value
+            , onInput (OnInputEntry path)
             ]
             []
         ]

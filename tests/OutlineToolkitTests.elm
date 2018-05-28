@@ -3,7 +3,8 @@ module OutlineToolkitTests exposing (all)
 import OutlineToolkit
 import Regex
 import Test exposing (..)
-import Test.Html.Selector exposing (tag, text)
+import Test.Html.Query as Query
+import Test.Html.Selector exposing (id, tag, text)
 import TestContext exposing (TestContext)
 
 
@@ -30,8 +31,9 @@ exampleOutline =
                 _ ->
                     Err "Failed to parse"
     , summarize =
-        \children ->
-            List.sum children
+        \value children ->
+            Maybe.withDefault 0 value
+                + List.sum children
     }
 
 
@@ -50,14 +52,14 @@ all =
         [ test "can compute aggregate information about the entries" <|
             \() ->
                 start
-                    |> TestContext.fillIn "item-1" "New Entry" "A: 7"
-                    |> TestContext.fillIn "item-2" "New Entry" "B: 3"
+                    |> TestContext.fillIn "item-0" "New Entry" "A: 7"
+                    |> TestContext.fillIn "item-1" "New Entry" "B: 3"
                     |> TestContext.expectViewHas [ text "Total: 10" ]
-        , test "can edit an existing item" <|
+        , test "can edit an existing entry" <|
             \() ->
                 start
-                    |> TestContext.fillIn "item-1" "New Entry" "A: 7"
-                    |> TestContext.fillIn "item-1" "New Entry" "Z: 70"
+                    |> TestContext.fillIn "item-0" "New Entry" "A: 7"
+                    |> TestContext.fillIn "item-0" "New Entry" "Z: 70"
                     -- ideally we would check the value in the input,
                     -- but the value is only in the real DOM, not in the virtual DOM
                     -- |> TestContext.expectViewHas [ tag "input", text "Z: 70" ]
