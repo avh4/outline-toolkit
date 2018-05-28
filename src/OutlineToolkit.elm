@@ -11,11 +11,13 @@ module OutlineToolkit exposing (Config, Model, Msg, init, program, update, view)
 
 -}
 
-import Array exposing (Array)
+import Array.Hamt as Array exposing (Array)
+import Dict exposing (Dict)
 import Html exposing (Html, text)
-import Html.Attributes exposing (for, id)
+import Html.Attributes exposing (class, for, id, style)
 import Html.Events exposing (onInput, onWithOptions)
 import Html.Keyed
+import Json.Decode
 import OutlineToolkit.Tree as Tree exposing (Path, Tree)
 
 
@@ -68,6 +70,7 @@ summarize config entries =
 {-| -}
 type Msg
     = OnInputEntry (List Int) String
+    | OnTab (List Int)
 
 
 {-| -}
@@ -77,24 +80,44 @@ update msg (Model model) =
         case msg of
             OnInputEntry path newValue ->
                 { model
-                    | entries = Tree.setAt path newValue model.entries
+                    | entries = Tree.set path newValue model.entries
+                }
+
+            OnTab path ->
+                { model
+                    | entries =
+                        model.entries
+                            |> Tree.findOrCreate path ""
+                            |> Tree.indent path
                 }
 
 
-viewEntries : List (Tree String) -> Html Msg
+viewEntries : Array (Tree String) -> Html Msg
 viewEntries entries =
     let
         f : Int -> List Int -> String -> List ( String, Html Msg ) -> ( String, Html Msg )
         f i path value children =
-            ( "container-" ++ String.join "-" (List.map toString (i :: path))
+            let
+                containerId =
+                    "container-" ++ String.join "-" (List.map toString (i :: path))
+            in
+            ( containerId
             , Html.Keyed.node "div"
-                []
+                [ class "container"
+                , id containerId
+                , style
+                    [ ( "border", "1px solid black" )
+                    , ( "padding", "10px" )
+                    ]
+                ]
                 (viewEntryInput (i :: path) value
                     :: children
                 )
             )
     in
-    List.indexedMap (\i -> Tree.indexedFold (f i)) entries
+    entries
+        |> Array.toList
+        |> List.indexedMap (\i -> Tree.indexedFold (f i))
         |> Html.Keyed.node "div" []
 
 
@@ -102,8 +125,9 @@ viewEntries entries =
 view : Config summaryData -> Model -> Html Msg
 view config (Model model) =
     Html.div []
-        [ viewEntries (Array.toList model.entries)
-        , viewEntryInput [ Array.length model.entries ] "" |> Tuple.second
+        [ model.entries
+            |> Tree.findOrCreate [ Array.length model.entries ] ""
+            |> viewEntries
         , viewSummary (summarize config model.entries)
         ]
 
@@ -121,12 +145,33 @@ viewEntryInput path value =
             [ text "New Entry" ]
         , Html.input
             [ id inputId
+            , Html.Attributes.defaultValue value
             , Html.Attributes.value value
             , onInput (OnInputEntry path)
+            , onWithOptions "keydown"
+                { preventDefault = True
+                , stopPropagation = True
+                }
+                (decodeKey (Dict.fromList [ ( 9, OnTab path ) ]))
             ]
             []
         ]
     )
+
+
+decodeKey : Dict Int msg -> Json.Decode.Decoder msg
+decodeKey mappings =
+    let
+        mapKey key =
+            case Dict.get key mappings of
+                Nothing ->
+                    Json.Decode.fail ""
+
+                Just msg ->
+                    Json.Decode.succeed msg
+    in
+    Json.Decode.at [ "keyCode" ] Json.Decode.int
+        |> Json.Decode.andThen mapKey
 
 
 viewSummary : summaryData -> Html msg

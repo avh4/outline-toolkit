@@ -1,5 +1,6 @@
 module OutlineToolkitTests exposing (all)
 
+import Json.Encode
 import OutlineToolkit
 import Regex
 import Test exposing (..)
@@ -64,4 +65,25 @@ all =
                     -- but the value is only in the real DOM, not in the virtual DOM
                     -- |> TestContext.expectViewHas [ tag "input", text "Z: 70" ]
                     |> TestContext.expectViewHas [ text "Total: 70" ]
+        , test "can add nested entries" <|
+            \() ->
+                start
+                    |> TestContext.fillIn "item-0" "New Entry" "A: 7"
+                    |> keydown "item-1" tab
+                    |> TestContext.fillIn "item-0-0" "New Entry" "A.A: 10"
+                    |> TestContext.expectViewHas [ text "Total: 17" ]
         ]
+
+
+tab : Int
+tab =
+    9
+
+
+keydown : String -> Int -> TestContext msg model effect -> TestContext msg model effect
+keydown fieldId key =
+    TestContext.simulate
+        (Query.find [ id fieldId ])
+        ( "keydown"
+        , Json.Encode.object [ ( "keyCode", Json.Encode.int key ) ]
+        )
