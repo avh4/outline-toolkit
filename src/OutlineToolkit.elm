@@ -1,6 +1,8 @@
-module OutlineToolkit exposing (Model, Msg, init, update, view)
+module OutlineToolkit exposing (Config, Model, Msg, init, update, view)
 
 {-|
+
+@docs Config
 
 
 ## Advanced
@@ -16,6 +18,13 @@ import Html.Events exposing (onInput)
 
 
 {-| -}
+type alias Config summaryData =
+    { parse : String -> Result String summaryData
+    , summarize : List summaryData -> summaryData
+    }
+
+
+{-| -}
 type Model
     = Model
         { entries : Array String
@@ -28,6 +37,13 @@ init =
     Model
         { entries = Array.empty
         }
+
+
+summarize : Config summaryData -> Array String -> summaryData
+summarize config entries =
+    Array.toList entries
+        |> List.filterMap (config.parse >> Result.toMaybe)
+        |> config.summarize
 
 
 type alias Path =
@@ -49,6 +65,7 @@ update msg (Model model) =
                     | entries =
                         model.entries
                             |> createIfNecessary path
+                            |> Array.set path newValue
                 }
 
 
@@ -66,11 +83,11 @@ createIfNecessary path array =
 
 
 {-| -}
-view : Model -> Html Msg
-view (Model model) =
+view : Config summaryData -> Model -> Html Msg
+view config (Model model) =
     Html.div []
         [ viewEntryInput (Array.length model.entries + 1)
-        , text "Total: 10"
+        , viewSummary (summarize config model.entries)
         ]
 
 
@@ -90,3 +107,8 @@ viewEntryInput i =
             ]
             []
         ]
+
+
+viewSummary : summaryData -> Html msg
+viewSummary data =
+    Html.text ("Total: " ++ toString data)
