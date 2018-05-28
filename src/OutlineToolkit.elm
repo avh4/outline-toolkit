@@ -1,8 +1,8 @@
-module OutlineToolkit exposing (Config, Model, Msg, init, update, view)
+module OutlineToolkit exposing (Config, Model, Msg, init, program, update, view)
 
 {-|
 
-@docs Config
+@docs Config, program
 
 
 ## Advanced
@@ -15,6 +15,7 @@ import Array exposing (Array)
 import Html exposing (Html, text)
 import Html.Attributes exposing (for, id)
 import Html.Events exposing (onInput)
+import Html.Keyed
 
 
 {-| -}
@@ -22,6 +23,16 @@ type alias Config summaryData =
     { parse : String -> Result String summaryData
     , summarize : List summaryData -> summaryData
     }
+
+
+{-| -}
+program : Config summaryData -> Program Never Model Msg
+program config =
+    Html.beginnerProgram
+        { model = init
+        , update = update
+        , view = view config
+        }
 
 
 {-| -}
@@ -86,18 +97,22 @@ createIfNecessary path array =
 view : Config summaryData -> Model -> Html Msg
 view config (Model model) =
     Html.div []
-        [ viewEntryInput (Array.length model.entries + 1)
+        [ Html.Keyed.node "div"
+            []
+            [ viewEntryInput (Array.length model.entries + 1)
+            ]
         , viewSummary (summarize config model.entries)
         ]
 
 
-viewEntryInput : Int -> Html Msg
+viewEntryInput : Int -> ( String, Html Msg )
 viewEntryInput i =
     let
         inputId =
             "item-" ++ toString i
     in
-    Html.div []
+    ( inputId
+    , Html.div []
         [ Html.label
             [ for inputId ]
             [ text "New Entry" ]
@@ -107,6 +122,7 @@ viewEntryInput i =
             ]
             []
         ]
+    )
 
 
 viewSummary : summaryData -> Html msg
