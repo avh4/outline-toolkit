@@ -75,7 +75,10 @@ all =
                     |> keydown "item-0" enter
                     |> keydown "item-1" tab
                     |> TestContext.fillIn "item-0-0" "New Entry" "A.A: 2"
-                    |> TestContext.expectViewHas [ text "Total: 3" ]
+                    |> Expect.all
+                        [ TestContext.expectViewHas [ text "Total: 3" ]
+                        , TestContext.expectView (Query.hasNot [ id "item-1" ])
+                        ]
         , test "can add deeply nested entries" <|
             \() ->
                 start

@@ -1,4 +1,19 @@
-module OutlineToolkit.Tree exposing (Path, Tree, empty, findOrCreate, fold, indent, indexedFold, insert, set)
+module OutlineToolkit.Tree
+    exposing
+        ( Path
+        , Tree
+        , children
+        , empty
+        , findOrCreate
+        , fold
+        , get
+        , indexedFold
+        , insert
+        , insertNode
+        , remove
+        , set
+        , value
+        )
 
 import Array.Hamt as Array exposing (Array)
 
@@ -11,9 +26,46 @@ type Path
     = Path (List Int)
 
 
+
+-- CREATING
+
+
 empty : Array (Tree a)
 empty =
     Array.empty
+
+
+
+-- INSPECTING
+
+
+value : Tree a -> a
+value (Tree a _) =
+    a
+
+
+children : Tree a -> Array (Tree a)
+children (Tree _ children) =
+    children
+
+
+get : List Int -> Array (Tree a) -> Maybe (Tree a)
+get path trees =
+    case path of
+        [] ->
+            -- There is no node value for the root
+            Nothing
+
+        [ i ] ->
+            Array.get i trees
+
+        next :: rest ->
+            Array.get next trees
+                |> Maybe.andThen ((\(Tree a children) -> children) >> get rest)
+
+
+
+-- MODIFYING
 
 
 set : List Int -> a -> Array (Tree a) -> Array (Tree a)
@@ -97,49 +149,17 @@ remove path trees =
                     Array.set next (Tree a (remove rest children)) trees
 
 
-indent : List Int -> Array (Tree a) -> Array (Tree a)
-indent path trees =
-    case path of
-        [] ->
-            -- can't indent the root node
-            trees
-
-        [ 0 ] ->
-            -- can't indent the first child
-            trees
-
-        [ i ] ->
-            case Array.get i trees of
-                Nothing ->
-                    -- can't indent a path that doesn't exist
-                    trees
-
-                Just movedNode ->
-                    -- remove child `i` and add it as the last grandchild of child `i-1`
-                    trees
-                        |> remove path
-                        |> setNode
-                            [ i - 1
-                            , Array.get (i - 1) trees
-                                |> Maybe.map (\(Tree _ grandchildren) -> Array.length grandchildren)
-                                |> Maybe.withDefault 0
-                            ]
-                            movedNode
-
-        next :: rest ->
-            case Array.get next trees of
-                Nothing ->
-                    -- can't indent a path that doesn't exist
-                    trees
-
-                Just (Tree a children) ->
-                    Array.set next (Tree a (indent rest children)) trees
-
-
 {-| Inserts the new value after the given node, shifting all siblings down
 -}
 insert : List Int -> a -> Array (Tree a) -> Array (Tree a)
-insert path newValue trees =
+insert path newValue =
+    insertNode path (Tree newValue Array.empty)
+
+
+{-| Inserts the new node after the given node, shifting all siblings down
+-}
+insertNode : List Int -> Tree a -> Array (Tree a) -> Array (Tree a)
+insertNode path newNode trees =
     case path of
         [] ->
             -- can't insert a new root node
@@ -151,7 +171,7 @@ insert path newValue trees =
                     Array.length trees
             in
             Array.append
-                (Array.slice 0 (i + 1) trees |> Array.push (Tree newValue Array.empty))
+                (Array.slice 0 (i + 1) trees |> Array.push newNode)
                 (Array.slice (i + 1) n trees)
 
         next :: rest ->
@@ -161,7 +181,7 @@ insert path newValue trees =
                     trees
 
                 Just (Tree a children) ->
-                    Array.set next (Tree a (insert rest newValue children)) trees
+                    Array.set next (Tree a (insertNode rest newNode children)) trees
 
 
 fold : (a -> List b -> b) -> Tree a -> b

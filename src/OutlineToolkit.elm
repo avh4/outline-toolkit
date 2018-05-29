@@ -93,14 +93,44 @@ update msg (Model model) =
                 )
 
             OnTab path ->
-                ( { model
-                    | entries =
-                        model.entries
-                            |> Tree.findOrCreate path ""
-                            |> Tree.indent path
-                  }
-                , Cmd.none
-                )
+                let
+                    indentPath acc p =
+                        case p of
+                            [] ->
+                                Nothing
+
+                            [ 0 ] ->
+                                Nothing
+
+                            [ i ] ->
+                                let
+                                    lastGrandchild =
+                                        Tree.get (List.reverse ((i - 1) :: acc)) model.entries
+                                            |> Maybe.map (Tree.children >> Array.length)
+                                            |> Maybe.withDefault 0
+                                in
+                                Just (List.reverse (lastGrandchild :: (i - 1) :: acc))
+
+                            -- Need last grandchild
+                            next :: rest ->
+                                indentPath (next :: acc) rest
+
+                    movingNode =
+                        Tree.get path model.entries
+                in
+                case ( movingNode, indentPath [] path ) of
+                    ( Just n, Just p ) ->
+                        ( { model
+                            | entries =
+                                model.entries
+                                    |> Tree.insertNode p n
+                                    |> Tree.remove path
+                          }
+                        , focus p
+                        )
+
+                    _ ->
+                        ( model, Cmd.none )
 
             OnNewline path ->
                 ( { model
@@ -108,17 +138,21 @@ update msg (Model model) =
                         model.entries
                             |> Tree.insert path ""
                   }
-                , path
-                    |> updateLast ((+) 1)
-                    |> List.map toString
-                    |> String.join "-"
-                    |> (\x -> "item-" ++ x)
-                    |> Dom.focus
-                    |> Task.attempt (always NoOp)
+                , focus (path |> updateLast ((+) 1))
                 )
 
             NoOp ->
                 ( model, Cmd.none )
+
+
+focus : List Int -> Cmd Msg
+focus path =
+    path
+        |> List.map toString
+        |> String.join "-"
+        |> (\x -> "item-" ++ x)
+        |> Dom.focus
+        |> Task.attempt (always NoOp)
 
 
 updateLast : (a -> a) -> List a -> List a
