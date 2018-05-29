@@ -38,11 +38,11 @@ exampleOutline =
     }
 
 
-start : TestContext OutlineToolkit.Msg OutlineToolkit.Model (Cmd never)
+start : TestContext OutlineToolkit.Msg OutlineToolkit.Model (Cmd OutlineToolkit.Msg)
 start =
     TestContext.create
         { init = ( OutlineToolkit.init, Cmd.none )
-        , update = \msg model -> ( OutlineToolkit.update msg model, Cmd.none )
+        , update = OutlineToolkit.update
         , view = OutlineToolkit.view exampleOutline
         }
 
@@ -54,6 +54,7 @@ all =
             \() ->
                 start
                     |> TestContext.fillIn "item-0" "New Entry" "A: 7"
+                    |> keydown "item-0" enter
                     |> TestContext.fillIn "item-1" "New Entry" "B: 3"
                     |> TestContext.expectViewHas [ text "Total: 10" ]
         , test "can edit an existing entry" <|
@@ -69,6 +70,7 @@ all =
             \() ->
                 start
                     |> TestContext.fillIn "item-0" "New Entry" "A: 7"
+                    |> keydown "item-0" enter
                     |> keydown "item-1" tab
                     |> TestContext.fillIn "item-0-0" "New Entry" "A.A: 10"
                     |> TestContext.expectViewHas [ text "Total: 17" ]
@@ -78,6 +80,11 @@ all =
 tab : Int
 tab =
     9
+
+
+enter : Int
+enter =
+    13
 
 
 keydown : String -> Int -> TestContext msg model effect -> TestContext msg model effect

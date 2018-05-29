@@ -13,12 +13,14 @@ module OutlineToolkit exposing (Config, Model, Msg, init, program, update, view)
 
 import Array.Hamt as Array exposing (Array)
 import Dict exposing (Dict)
+import Dom
 import Html exposing (Html, text)
 import Html.Attributes exposing (class, for, id, style)
 import Html.Events exposing (onInput, onWithOptions)
 import Html.Keyed
 import Json.Decode
 import OutlineToolkit.Tree as Tree exposing (Path, Tree)
+import Task
 
 
 {-| -}
@@ -31,9 +33,10 @@ type alias Config summaryData =
 {-| -}
 program : Config summaryData -> Program Never Model Msg
 program config =
-    Html.beginnerProgram
-        { model = init
+    Html.program
+        { init = ( init, Cmd.none )
         , update = update
+        , subscriptions = \_ -> Sub.none
         , view = view config
         }
 
@@ -49,7 +52,9 @@ type Model
 init : Model
 init =
     Model
-        { entries = Tree.empty
+        { entries =
+            Tree.empty
+                |> Tree.findOrCreate [ 0 ] ""
         }
 
 
@@ -71,25 +76,62 @@ summarize config entries =
 type Msg
     = OnInputEntry (List Int) String
     | OnTab (List Int)
+    | OnNewline (List Int)
+    | NoOp
 
 
 {-| -}
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg (Model model) =
-    Model <|
+    Tuple.mapFirst Model <|
         case msg of
             OnInputEntry path newValue ->
-                { model
+                ( { model
                     | entries = Tree.set path newValue model.entries
-                }
+                  }
+                , Cmd.none
+                )
 
             OnTab path ->
-                { model
+                ( { model
                     | entries =
                         model.entries
                             |> Tree.findOrCreate path ""
                             |> Tree.indent path
-                }
+                  }
+                , Cmd.none
+                )
+
+            OnNewline path ->
+                ( { model
+                    | entries =
+                        model.entries
+                            |> Tree.insert path ""
+                  }
+                , path
+                    |> updateLast ((+) 1)
+                    |> List.map toString
+                    |> String.join "-"
+                    |> (\x -> "item-" ++ x)
+                    |> Dom.focus
+                    |> Task.attempt (always NoOp)
+                )
+
+            NoOp ->
+                ( model, Cmd.none )
+
+
+updateLast : (a -> a) -> List a -> List a
+updateLast f list =
+    case list of
+        [] ->
+            list
+
+        [ a ] ->
+            [ f a ]
+
+        next :: rest ->
+            next :: updateLast f rest
 
 
 viewEntries : Array (Tree String) -> Html Msg
@@ -126,7 +168,6 @@ view : Config summaryData -> Model -> Html Msg
 view config (Model model) =
     Html.div []
         [ model.entries
-            |> Tree.findOrCreate [ Array.length model.entries ] ""
             |> viewEntries
         , viewSummary (summarize config model.entries)
         ]
@@ -152,7 +193,13 @@ viewEntryInput path value =
                 { preventDefault = True
                 , stopPropagation = True
                 }
-                (decodeKey (Dict.fromList [ ( 9, OnTab path ) ]))
+                (decodeKey
+                    (Dict.fromList
+                        [ ( 9, OnTab path )
+                        , ( 13, OnNewline path )
+                        ]
+                    )
+                )
             ]
             []
         ]
@@ -165,7 +212,7 @@ decodeKey mappings =
         mapKey key =
             case Dict.get key mappings of
                 Nothing ->
-                    Json.Decode.fail ""
+                    Json.Decode.fail ("No mapping for keycode: " ++ toString key)
 
                 Just msg ->
                     Json.Decode.succeed msg

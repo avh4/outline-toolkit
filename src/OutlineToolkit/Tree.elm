@@ -1,4 +1,4 @@
-module OutlineToolkit.Tree exposing (Path, Tree, empty, findOrCreate, fold, indent, indexedFold, set)
+module OutlineToolkit.Tree exposing (Path, Tree, empty, findOrCreate, fold, indent, indexedFold, insert, set)
 
 import Array.Hamt as Array exposing (Array)
 
@@ -134,6 +134,34 @@ indent path trees =
 
                 Just (Tree a children) ->
                     Array.set next (Tree a (indent rest children)) trees
+
+
+{-| Inserts the new value after the given node, shifting all siblings down
+-}
+insert : List Int -> a -> Array (Tree a) -> Array (Tree a)
+insert path newValue trees =
+    case path of
+        [] ->
+            -- can't insert a new root node
+            trees
+
+        [ i ] ->
+            let
+                n =
+                    Array.length trees
+            in
+            Array.append
+                (Array.slice 0 (i + 1) trees |> Array.push (Tree newValue Array.empty))
+                (Array.slice (i + 1) n trees)
+
+        next :: rest ->
+            case Array.get next trees of
+                Nothing ->
+                    -- can't insert below a path that doesn't exist
+                    trees
+
+                Just (Tree a children) ->
+                    Array.set next (Tree a (insert rest newValue children)) trees
 
 
 fold : (a -> List b -> b) -> Tree a -> b
