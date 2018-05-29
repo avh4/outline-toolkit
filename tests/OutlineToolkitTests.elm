@@ -74,6 +74,19 @@ all =
                     |> keydown "item-1" tab
                     |> TestContext.fillIn "item-0-0" "New Entry" "A.A: 10"
                     |> TestContext.expectViewHas [ text "Total: 17" ]
+        , test "can add deeply nested entries" <|
+            \() ->
+                start
+                    |> TestContext.fillIn "item-0" "New Entry" "A: 1"
+                    |> keydown "item-0" enter
+                    |> keydown "item-1" tab
+                    |> TestContext.fillIn "item-0-0" "New Entry" "A.A: 2"
+                    |> keydown "item-0-0" enter
+                    |> keydown "item-0-1" tab
+                    |> TestContext.fillIn "item-0-0-0" "New Entry" "A.A.A: 4"
+                    |> keydown "item-0-0-0" enter
+                    |> TestContext.fillIn "item-0-0-1" "New Entry" "A.A.B: 8"
+                    |> TestContext.expectViewHas [ text "Total: 15" ]
         ]
 
 

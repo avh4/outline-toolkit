@@ -177,11 +177,11 @@ indexedFold f tree =
 fold_ : (List Int -> a -> List b -> b) -> List Int -> Tree a -> b
 fold_ f path (Tree init trees) =
     if Array.isEmpty trees then
-        f path init []
+        f (List.reverse path) init []
 
     else
         f
-            path
+            (List.reverse path)
             init
             (List.indexedMap
                 (\i -> fold_ f (i :: path))
