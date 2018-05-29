@@ -1,11 +1,13 @@
 module OutlineToolkitTests exposing (all)
 
+import Expect
+import Html.Attributes exposing (value)
 import Json.Encode
 import OutlineToolkit
 import Regex
 import Test exposing (..)
 import Test.Html.Query as Query
-import Test.Html.Selector exposing (id, tag, text)
+import Test.Html.Selector exposing (attribute, id, tag, text)
 import TestContext exposing (TestContext)
 
 
@@ -53,27 +55,27 @@ all =
         [ test "can compute aggregate information about the entries" <|
             \() ->
                 start
-                    |> TestContext.fillIn "item-0" "New Entry" "A: 7"
+                    |> TestContext.fillIn "item-0" "New Entry" "A: 1"
                     |> keydown "item-0" enter
-                    |> TestContext.fillIn "item-1" "New Entry" "B: 3"
-                    |> TestContext.expectViewHas [ text "Total: 10" ]
+                    |> TestContext.fillIn "item-1" "New Entry" "B: 2"
+                    |> TestContext.expectViewHas [ text "Total: 3" ]
         , test "can edit an existing entry" <|
             \() ->
                 start
-                    |> TestContext.fillIn "item-0" "New Entry" "A: 7"
-                    |> TestContext.fillIn "item-0" "New Entry" "Z: 70"
-                    -- ideally we would check the value in the input,
-                    -- but the value is only in the real DOM, not in the virtual DOM
-                    -- |> TestContext.expectViewHas [ tag "input", text "Z: 70" ]
-                    |> TestContext.expectViewHas [ text "Total: 70" ]
+                    |> TestContext.fillIn "item-0" "New Entry" "A: 1"
+                    |> TestContext.fillIn "item-0" "New Entry" "Z: 2"
+                    |> Expect.all
+                        [ TestContext.expectViewHas [ tag "input", attribute (value "Z: 2") ]
+                        , TestContext.expectViewHas [ text "Total: 2" ]
+                        ]
         , test "can add nested entries" <|
             \() ->
                 start
-                    |> TestContext.fillIn "item-0" "New Entry" "A: 7"
+                    |> TestContext.fillIn "item-0" "New Entry" "A: 1"
                     |> keydown "item-0" enter
                     |> keydown "item-1" tab
-                    |> TestContext.fillIn "item-0-0" "New Entry" "A.A: 10"
-                    |> TestContext.expectViewHas [ text "Total: 17" ]
+                    |> TestContext.fillIn "item-0-0" "New Entry" "A.A: 2"
+                    |> TestContext.expectViewHas [ text "Total: 3" ]
         , test "can add deeply nested entries" <|
             \() ->
                 start
@@ -86,7 +88,10 @@ all =
                     |> TestContext.fillIn "item-0-0-0" "New Entry" "A.A.A: 4"
                     |> keydown "item-0-0-0" enter
                     |> TestContext.fillIn "item-0-0-1" "New Entry" "A.A.B: 8"
-                    |> TestContext.expectViewHas [ text "Total: 15" ]
+                    |> Expect.all
+                        [ TestContext.expectViewHas [ tag "input", id "item-0-0-1", attribute (value "A.A.B: 8") ]
+                        , TestContext.expectViewHas [ text "Total: 15" ]
+                        ]
         ]
 
 
